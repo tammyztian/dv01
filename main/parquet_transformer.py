@@ -4,10 +4,8 @@ from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from main.csv_reader import create_dataframe
 
-
-DEFAULT_UPLOAD_PATH =  f'../data/{datetime.now()}_'
+DEFAULT_UPLOAD_PATH =  f'../data/cleaned/{datetime.now()}_'
     # would prob load it into an s3/other file store for QA-ing purposes. 
 
 #  Parquet Transformer:
@@ -21,17 +19,26 @@ DEFAULT_UPLOAD_PATH =  f'../data/{datetime.now()}_'
 # Hints:
 # some columns or some rows in a column are already in the ISO standard format.  Please consider performance!!!
 # You may want to also consider letting the user of the library choose which column to apply standardization.
-def transform_data(file_path, schema_path):
-    raw_df = create_dataframe(file_path, schema_path)
+
+def transform_df(df:pd.DataFrame, schema_file: str):
+    pass
 
 
+def standardize_ISO_date_columns(df: pd.DataFrame, columns=list[str]):
+    for column in columns:
+        df[column] = df[column].apply(standardize_to_ISO_date)
+    print(df)
+
+    return df
 
 
-
-
-def standarize_to_ISO_date(date_str):
+def standardize_to_ISO_date(date_str):
+    # import pdb; pdb.set_trace()
     date_formats = ['%Y-%m-%d', '%y-%b', '%b-%y', '%m/%d/%Y', '%d-%m-%Y']
+    
     for format in date_formats:
+        if type(date_str) != str:
+            return 'nan'
         try:
             # Try to parse the date string with the current format
             date_obj = datetime.strptime(date_str, format)
@@ -56,7 +63,7 @@ def generate_file_schema(schema_file_path):
     df = pd.read_csv(schema_file_path)
     dtype_mapping = {}
 
-    for row in df.iterrows():
+    for index, row in df.iterrows():
         field_name = row['Field Name']
         dtype = get_type_mapping(row['Data Type'])
         nullable = (row['Nullability'])
@@ -68,15 +75,15 @@ def generate_file_schema(schema_file_path):
         
 # New Nullable int type in pandas:
 # https://pandas.pydata.org/docs/reference/api/pandas.Int64Dtype.html#pandas.Int64Dtype
-# float is nullable in dask.
+
 def get_type_mapping(field, is_pandas=True):
-        type_mapping = {
-            'Integer': (pd.Int64Dtype() if is_pandas is True else 'float64'),
-            'Double': 'float64',
-            'String': 'object',  
-            'Date': 'object'
-        }   
-        return type_mapping[field['Data Type']] 
+    type_mapping = {
+        'Integer': (pd.Int64Dtype() if is_pandas is True else 'int64'),
+        'Double': 'float64',
+        'String': 'object',  
+        'Date': 'object'
+    }   
+    return type_mapping[field]
 
 
 
