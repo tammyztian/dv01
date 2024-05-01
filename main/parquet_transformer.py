@@ -59,6 +59,14 @@ def standardize_to_ISO_date(date_str):
     return "Invalid date format or unknown format."
 
 
+
+def get_list_difference(list_1, list_2):
+    set1 = set(list_1)
+    set2 = set(list_2)
+    difference = set1 - set2
+    return list(difference)
+
+
 def generate_file_schema(schema_file_path):
     df = pd.read_csv(schema_file_path)
     dtype_mapping = {}
@@ -84,6 +92,48 @@ def get_type_mapping(field, is_pandas=True):
         'Date': 'object'
     }   
     return type_mapping[field]
+
+
+
+def fill_missing_columns(df:pd.DataFrame, schema_file_path:str):
+    schema = generate_file_schema(schema_file_path)
+    schema_columns = [key for key in schema]
+    df_columns = df.columns()
+    missing_columns = get_list_difference(schema_columns, df_columns)
+
+    # Fill in missing columns in schema
+    for column in missing_columns:
+        column_schema = schema_columns[column]
+        column_dtype = column_schema['data_type']
+        column_nullability = column_dtype['nullable']
+        if column_nullability == True:
+            df[column] = pd.Series()
+        if column_dtype == 'object':
+            df[column] = ''
+        if column_dtype == 'float':
+            df[column] = 0.0
+        if column_dtype == 'int':
+            df[column] = 0
+
+    return df
+    
+
+# Incomplete here. I have this as a one size fits all, 
+# but I'd imagine we'd want to be able to pick and choose 
+# which rows we drop or fill depending on the column
+def handle_nulls(df:pd.DataFrame, schema_file_path:str,delete_rows:bool=True, fill_null_rows:bool=False):
+    schema = generate_file_schema(schema_file_path)
+    non_null_columns = [key for key in schema if key['nullable'] == False]
+
+    for column in non_null_columns:
+        if delete_rows == True:
+            df = df[df[column].notna()]
+        
+        if fill_null_rows == True:
+
+            df[['columns']] = df[['columns']].fillna(value=0)
+
+
 
 
 
